@@ -64,6 +64,7 @@ class Document(dict):
         if self._document_id is not None:
             self['_id'] = self._document_id
         self.encoder = self._client.encoder
+        self._is_context_manager = False
 
     @property
     def r_session(self):
@@ -161,7 +162,10 @@ class Document(dict):
         the locally cached Document object.
         """
         if self.document_url is None:
-            raise CloudantDocumentException(101)
+            if self._is_context_manager:
+                return
+            else:
+                raise CloudantDocumentException(101)
         resp = self.r_session.get(self.document_url)
         resp.raise_for_status()
         self.clear()
@@ -327,6 +331,7 @@ class Document(dict):
         # We don't want to raise an exception if the document is not found
         # because upon __exit__ the save() call will create the document
         # if necessary.
+        self._is_context_manager = True
         try:
             self.fetch()
         except HTTPError as error:
