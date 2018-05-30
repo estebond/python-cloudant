@@ -66,7 +66,6 @@ def test_python(pythonVersion, name) {
     } else {
       def args
       def port
-      def runInfo = [imageName: name, envVars: getEnvForDest(dest)]
       switch(name) {
         case 'apache/couchdb:1.7.1':
         case 'apache/couchdb:2.1.0':
