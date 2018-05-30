@@ -1,20 +1,44 @@
-def getEnvForSuite(suiteName) {
-  // Base environment variables
+#!groovy
+
+/*
+ * Copyright © 2017 IBM Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+ // Get the IP of a docker container
+def hostIp(container) {
+  sh "docker inspect -f '{{.NetworkSettings.IPAddress}}' ${container.id} > hostIp"
+  readFile('hostIp').trim()
+}
+
+def getEnvForSuite(name, hostIp) {
   def envVars = [
-    "CLOUDANT_ACCOUNT=$DB_USER",
-    "RUN_CLOUDANT_TESTS=1",
-    "SKIP_DB_UPDATES=1" // Disable pending resolution of case 71610
+    'SKIP_DB_UPDATES=1' //Currently disabled
   ]
-  // Add test suite specific environment variables
-  switch(suiteName) {
-    case 'basic':
-      envVars.add("RUN_BASIC_AUTH_TESTS=1")
+  switch(name) {
+    case 'couchdb:1.6.1':
+    case 'klaemo/couchdb:2.0.0':
+      envVars.add('ADMIN_PARTY=true')
+      envVars.add("DB_URL=http://${hostIp}:5984")
       break
-    case 'cookie':
+    case 'cloudant':
+      envVars.add("CLOUDANT_ACCOUNT=${env.DB_USER}")
+      envVars.add('RUN_CLOUDANT_TESTS=1')
       break
-    case 'iam':
-      // Setting IAM_API_KEY forces tests to run using an IAM enabled client.
-      envVars.add("IAM_API_KEY=$DB_IAM_API_KEY")
+    case 'ibmcom/cloudant-developer':
+      envVars.add('RUN_CLOUDANT_TESTS=1')
+      envVars.add('DB_USER=admin')
+      envVars.add('DB_PASSWORD=pass')
+      envVars.add("DB_URL=http://${hostIp}:80")
       break
     default:
       error("Unknown test suite environment ${suiteName}")
@@ -22,23 +46,59 @@ def getEnvForSuite(suiteName) {
   return envVars
 }
 
-def setupPythonAndTest(pythonVersion, testSuite) {
+def test_python(pythonVersion, name) {
   node {
-    // Unstash the source on this node
-    unstash name: 'source'
-    // Set up the environment and test
-    withCredentials([usernamePassword(credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD'),
-                     string(credentialsId: 'clientlibs-test-iam', variable: 'DB_IAM_API_KEY')]) {
-      withEnv(getEnvForSuite("${testSuite}")) {
+    // Add test suite specific environment variables
+    if (name == 'cloudant') {
+      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD']]) {
+        test_python_exec(pythonVersion, getEnvForSuite(name, null))
+      }
+    } else {
+      def args
+      switch(name) {
+        case 'apache/couchdb:1.7.1':
+        case 'apache/couchdb:2.1.0':
+          args = '-p 5984:5984'
+          break
+        case 'ibmcom/cloudant-developer':
+          args = '-p 8080:80'
+          break
+        default:
+          error("Unknown container ${suiteName}")
+      }
+      docker.image(name).withRun(args) { container ->
+        hostIp = hostIp(container)
+        switch(name) {
+          case 'apache/couchdb:2.1.0':
+            sh 'curl -X PUT localhost:5984/_users'
+            sh 'curl -X PUT localhost:5984/_replicator'
+            sh 'curl -X PUT localhost:5984/_global_changes'
+            break
+          case 'ibmcom/cloudant-developer':
+            sh 'curl -X PUT localhost:8080/_replicator'
+            break
+          default:
+            break
+        }
+        test_python_exec(pythonVersion, getEnvForSuite(name, hostIp))
+      }
+    }
+  }
+}
+
+// Define the test routine for different python versions
+def test_python_exec(pythonVersion, envVars) {
+  docker.withRegistry("https://${env.DOCKER_REGISTRY}", 'artifactory') {
+    docker.image("${env.DOCKER_REGISTRY}python:${pythonVersion}-alpine").inside('-u 0') {
+      // Set up the environment and test
+      withEnv(envVars){
         try {
-          sh """
-            virtualenv tmp -p /usr/local/lib/python${pythonVersion}/bin/${pythonVersion.startsWith('3') ? "python3" : "python"}
-            . ./tmp/bin/activate
-            pip install -r requirements.txt
-            pip install -r test-requirements.txt
-            pylint ./src/cloudant
-            nosetests -w ./tests/unit --with-xunit
-          """
+        // Unstash the source in this image
+        unstash name: 'source'
+        sh """pip install -r requirements.txt
+              pip install -r test-requirements.txt
+              pylint ./src/cloudant
+              nosetests -w ./tests/unit --with-xunit"""
         } finally {
           // Load the test results
           junit 'nosetests.xml'
@@ -56,20 +116,13 @@ stage('Checkout'){
     stash name: 'source'
   }
 }
-
 stage('Test'){
-  axes = [:]
-  ['2.7.12','3.5.2'].each { version ->
-    ['basic','cookie','iam'].each { auth ->
-       axes.put("Python${version}-${auth}", {setupPythonAndTest(version, auth)})
+  // Run tests in parallel for multiple python versions
+  def testAxes = [:]
+  ['2.7', '3.6'].each { v ->
+    ['apache/couchdb:1.7.1','apache/couchdb:2.1.0','ibmcom/cloudant-developer'].each { c ->
+      testAxes.put("Python${v}_${c}", {test_python(v, c)})
     }
   }
-  parallel(axes)
-}
-
-stage('Publish') {
-  gitTagAndPublish {
-    isDraft=true
-    releaseApiUrl='https://api.github.com/repos/cloudant/python-cloudant/releases'
-  }
+  parallel(testAxes)
 }
