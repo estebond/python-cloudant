@@ -82,7 +82,7 @@ def test_python(pythonVersion, name) {
       }
       docker.image(name).withRun(args) { container ->
         hostIp = hostIp(container)
-        sh "while [ $? -ne 0 ]; do sleep 1 && curl -v ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
+        sh 'wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done'
         switch(name) {
           case 'apache/couchdb:2.1.0':
             sh 'curl -X PUT localhost:5984/_users'
