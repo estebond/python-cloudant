@@ -1,5 +1,7 @@
 #!groovy
 
+@Library('integrations-pipeline@env+creds-in-docker') _
+
 /*
  * Copyright © 2017, 2018 IBM Corp. All rights reserved.
  *
@@ -21,20 +23,27 @@ def hostIp(container) {
 }
 
 def getEnvForSuite(name, hostIp) {
+  CLOUDANT_ENV = ['DB_HTTP=https', 'DB_HOST=clientlibs-test.cloudant.com', 'DB_PORT=443', 'DB_IGNORE_COMPACTION=true', 'GRADLE_TARGET=cloudantServiceTest']
+  CONTAINER_ENV = ['DB_HTTP=http', 'DB_PORT=5984', 'DB_IGNORE_COMPACTION=false', 'GRADLE_TARGET=test']
   def envVars = [
     'SKIP_DB_UPDATES=1' //Currently disabled
   ]
   switch(name) {
     case 'apache/couchdb:1.7.1':
+      envVars.addAll(CONTAINER_ENV)
+      envVars.add('DB_PORT=5984')
     case 'apache/couchdb:2.1.0':
+      envVars.addAll(CONTAINER_ENV)
       envVars.add('ADMIN_PARTY=true')
       envVars.add("DB_URL=http://${hostIp}:5984")
       break
     case 'cloudant':
+      envVars.addAll(CLOUDANT_ENV)
       envVars.add("CLOUDANT_ACCOUNT=${env.DB_USER}")
       envVars.add('RUN_CLOUDANT_TESTS=1')
       break
     case 'ibmcom/cloudant-developer':
+      envVars.addAll(CONTAINER_ENV)
       envVars.add('RUN_CLOUDANT_TESTS=1')
       envVars.add('DB_USER=admin')
       envVars.add('DB_PASSWORD=pass')
@@ -48,15 +57,16 @@ def getEnvForSuite(name, hostIp) {
 
 def test_python(pythonVersion, name) {
   node {
+    def runInfo = [imageName: name, envVars: getEnvForDest(dest)]
     // Add test suite specific environment variables
     if (name == 'cloudant') {
-      withCredentials([usernamePassword(credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD'),
-                     string(credentialsId: 'clientlibs-test-iam', variable: 'DB_IAM_API_KEY')]) {
-        test_python_exec(pythonVersion, getEnvForSuite(name, null))
-      }
+      runInfo.envVars.add('CREDS_ID=clientlibs-test')
+      runInfo.creds = [usernamePassword(credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
+      runIn.dockerEnv(runInfo, test_python_exec(pythonVersion, getEnvForSuite(name, null)))
     } else {
       def args
       def port
+      def runInfo = [imageName: name, envVars: getEnvForDest(dest)]
       switch(name) {
         case 'apache/couchdb:1.7.1':
         case 'apache/couchdb:2.1.0':
@@ -72,7 +82,7 @@ def test_python(pythonVersion, name) {
       }
       docker.image(name).withRun(args) { container ->
         hostIp = hostIp(container)
-        sh 'while [ $? -ne 0 ]; do sleep 1 && curl -v http://${hostIp}:${port}; done'
+        sh "while [ $? -ne 0 ]; do sleep 1 && curl -v ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
         switch(name) {
           case 'apache/couchdb:2.1.0':
             sh 'curl -X PUT localhost:5984/_users'
@@ -85,7 +95,14 @@ def test_python(pythonVersion, name) {
           default:
             break
         }
-        test_python_exec(pythonVersion, getEnvForSuite(name, hostIp))
+      // Use the sidecar as the test target host
+      runInfo.envVars.add('DB_HOST=$SIDECAR_0')
+      // Add credentials for the cloudantdeveloper image
+      if (dest == 'ibmcom/cloudant-developer') {
+        runInfo.envVars.add('CREDS_ID=cloudant-developer')
+        runInfo.creds = [usernamePassword(credentialsId: 'cloudant-developer', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
+      }
+      runIn.dockerEnvWithSidecars(runInfo, [[imageName: dest]], test_python_exec(pythonVersion, getEnvForSuite(name, hostIp)))
       }
     }
   }
