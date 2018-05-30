@@ -72,8 +72,8 @@ def test_python(pythonVersion, name) {
       }
       docker.image(name).withRun(args) { container ->
         hostIp = hostIp(container)
+        sh 'while [ $? -ne 0 ]; do sleep 1 && curl -v http://${hostIp}:${port}; done'
         switch(name) {
-          sh 'while [ $? -ne 0 ]; do sleep 1 && curl -v http://${hostIp}:${port}; done'
           case 'apache/couchdb:2.1.0':
             sh 'curl -X PUT localhost:5984/_users'
             sh 'curl -X PUT localhost:5984/_replicator'
