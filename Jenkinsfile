@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('integrations-pipeline@env+creds-in-docker') _
+@Library('integrations-pipeline') _
 
 /*
  * Copyright © 2017, 2018 IBM Corp. All rights reserved.
@@ -23,8 +23,8 @@ def hostIp(container) {
 }
 
 def getEnvForSuite(name, hostIp) {
-  CLOUDANT_ENV = ['DB_HTTP=https', 'DB_HOST=clientlibs-test.cloudant.com', 'DB_PORT=443', 'DB_IGNORE_COMPACTION=true', 'GRADLE_TARGET=cloudantServiceTest']
-  CONTAINER_ENV = ['DB_HTTP=http', 'DB_PORT=5984', 'DB_IGNORE_COMPACTION=false', 'GRADLE_TARGET=test']
+  CLOUDANT_ENV = ['DB_HTTP=https', 'DB_HOST=clientlibs-test.cloudant.com', 'DB_PORT=443', 'DB_IGNORE_COMPACTION=true']
+  CONTAINER_ENV = ['DB_HTTP=http', 'DB_PORT=5984', 'DB_IGNORE_COMPACTION=false']
   def envVars = [
     'SKIP_DB_UPDATES=1' //Currently disabled
   ]
