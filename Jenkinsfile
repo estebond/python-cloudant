@@ -1,7 +1,7 @@
 #!groovy
 
 /*
- * Copyright © 2017 IBM Corp. All rights reserved.
+ * Copyright © 2017, 2018 IBM Corp. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -25,8 +25,8 @@ def getEnvForSuite(name, hostIp) {
     'SKIP_DB_UPDATES=1' //Currently disabled
   ]
   switch(name) {
-    case 'couchdb:1.6.1':
-    case 'klaemo/couchdb:2.0.0':
+    case 'apache/couchdb:1.7.1':
+    case 'apache/couchdb:2.1.0':
       envVars.add('ADMIN_PARTY=true')
       envVars.add("DB_URL=http://${hostIp}:5984")
       break
@@ -50,17 +50,21 @@ def test_python(pythonVersion, name) {
   node {
     // Add test suite specific environment variables
     if (name == 'cloudant') {
-      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD']]) {
+      withCredentials([usernamePassword(credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD'),
+                     string(credentialsId: 'clientlibs-test-iam', variable: 'DB_IAM_API_KEY')]) {
         test_python_exec(pythonVersion, getEnvForSuite(name, null))
       }
     } else {
       def args
+      def port
       switch(name) {
         case 'apache/couchdb:1.7.1':
         case 'apache/couchdb:2.1.0':
+          port = '5984'
           args = '-p 5984:5984'
           break
         case 'ibmcom/cloudant-developer':
+          port = '8080'
           args = '-p 8080:80'
           break
         default:
@@ -69,6 +73,7 @@ def test_python(pythonVersion, name) {
       docker.image(name).withRun(args) { container ->
         hostIp = hostIp(container)
         switch(name) {
+          sh 'while [ $? -ne 0 ]; do sleep 1 && curl -v http://${hostIp}:${port}; done'
           case 'apache/couchdb:2.1.0':
             sh 'curl -X PUT localhost:5984/_users'
             sh 'curl -X PUT localhost:5984/_replicator'
@@ -120,7 +125,7 @@ stage('Test'){
   // Run tests in parallel for multiple python versions
   def testAxes = [:]
   ['2.7', '3.6'].each { v ->
-    ['apache/couchdb:1.7.1','apache/couchdb:2.1.0','ibmcom/cloudant-developer'].each { c ->
+    ['apache/couchdb:1.7.1'].each { c ->
       testAxes.put("Python${v}_${c}", {test_python(v, c)})
     }
   }
