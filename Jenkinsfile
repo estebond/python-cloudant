@@ -45,7 +45,8 @@ def test_python(name, dest) {
   def testRun = {
     echo env.DB_HTTP
     echo env.DB_HOST
-    sh 'wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done'
+    sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
+
     switch(dest) {
       case 'apache/couchdb:2.1.0':
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
