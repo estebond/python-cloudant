@@ -44,7 +44,7 @@ def getEnvForDest(dest) {
                testEnvVars.add('CREATE_REPLICATOR=true')
                break
            default:
-               error("Unknown test env ${name}")
+               error("Unknown test env")
        }
     }
     return testEnvVars
