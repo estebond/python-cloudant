@@ -1,7 +1,5 @@
 #!groovy
 
-@Library('integrations-pipeline') _
-
 /*
  * Copyright © 2017, 2018 IBM Corp. All rights reserved.
  *
