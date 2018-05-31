@@ -109,7 +109,7 @@ stage('Test'){
   def testAxes = [:]
   ['2.7', '3.6'].each { v ->
     ['library/couchdb:1.7.1'].each { c ->
-      testAxes.put("Python${v}_${c}", {test_python(v, c)})
+      testAxes.put("Python${v}_${c}", {test_python("python:${v}", c)})
     }
   }
   parallel(testAxes)
