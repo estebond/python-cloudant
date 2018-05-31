@@ -95,7 +95,7 @@ def test_python(pythonVersion, name) {
       // Use the sidecar as the test target host
       runInfo.envVars.add('DB_HOST=$SIDECAR_0')
       // Add credentials for the cloudantdeveloper image
-      if (dest == 'ibmcom/cloudant-developer') {
+      if (name == 'ibmcom/cloudant-developer') {
         runInfo.envVars.add('CREDS_ID=cloudant-developer')
         runInfo.creds = [usernamePassword(credentialsId: 'cloudant-developer', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
       }
