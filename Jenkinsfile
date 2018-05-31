@@ -14,12 +14,6 @@
  * and limitations under the License.
  */
 
- // Get the IP of a docker container
-def hostIp(container) {
-  sh "docker inspect -f '{{.NetworkSettings.IPAddress}}' ${container.id} > hostIp"
-  readFile('hostIp').trim()
-}
-
 def getEnvForDest(dest) {
     // Define the matrix environments
     CLOUDANT_ENV = ['DB_HTTP=https', 'DB_HOST=clientlibs-test.cloudant.com', 'DB_PORT=443']
@@ -31,17 +25,13 @@ def getEnvForDest(dest) {
        testEnvVars.addAll(CONTAINER_ENV)
        switch(dest) {
            case 'library/couchdb:2.1.1':
-               testEnvVars.add('CREATE_USERS=true')
-               testEnvVars.add('CREATE_REPLICATOR=true')
                testEnvVars.add('DB_PORT=5984')
-               testEnvVars.add('SCHEDULER_CONFIG=true')
                break
            case 'library/couchdb:1.7.1':
                testEnvVars.add('DB_PORT=5984')
                break
            case 'ibmcom/cloudant-developer':
                testEnvVars.add('DB_PORT=80')
-               testEnvVars.add('CREATE_REPLICATOR=true')
                break
            default:
                error("Unknown test env")
@@ -53,6 +43,8 @@ def getEnvForDest(dest) {
 def test_python(name, dest) {
   // Define the test routine for different python versions
   def testRun = {
+    echo env.DB_HTTP
+    echo env.DB_HOST
     sh 'wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done'
     switch(dest) {
       case 'apache/couchdb:2.1.0':
