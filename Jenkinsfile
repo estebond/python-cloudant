@@ -43,10 +43,7 @@ def getEnvForDest(dest) {
 def test_python(name, dest) {
   // Define the test routine for different python versions
   def testRun = {
-    echo env.DB_HTTP
-    echo env.DB_HOST
     sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
-
     switch(dest) {
       case 'apache/couchdb:2.1.0':
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
@@ -62,8 +59,8 @@ def test_python(name, dest) {
     try {
       // Unstash the source in this image
       unstash name: 'source'
-      sh """pip install -r requirements.txt
-            pip install -r test-requirements.txt
+      sh """pip install --user -r requirements.txt
+            pip install --user -r test-requirements.txt
             pylint ./src/cloudant
             nosetests -w ./tests/unit --with-xunit"""
     } finally {
