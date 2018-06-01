@@ -24,7 +24,7 @@ def getEnvForDest(dest) {
     } else {
        testEnvVars.addAll(CONTAINER_ENV)
        switch(dest) {
-           case ~/apache/couchdb:.*/:
+           case ~/apache\/couchdb:.*/:
                echo env.DB_HOST
                echo 'env.DB_HOST'
                echo '${env.DB_HOST}'
