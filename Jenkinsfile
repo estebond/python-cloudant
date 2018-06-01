@@ -26,9 +26,11 @@ def getEnvForDest(dest) {
        switch(dest) {
            case 'library/couchdb:2.1.1':
                testEnvVars.add('DB_PORT=5984')
+               testEnvVars.add('ADMIN_PARTY=true')
                break
            case 'library/couchdb:1.7.1':
                testEnvVars.add('DB_PORT=5984')
+               testEnvVars.add('ADMIN_PARTY=true')
                break
            case 'ibmcom/cloudant-developer':
                testEnvVars.add('DB_PORT=80')
@@ -98,7 +100,7 @@ stage('Test'){
   // Run tests in parallel for multiple python versions
   def testAxes = [:]
   ['2.7', '3.6'].each { v ->
-    ['library/couchdb:1.7.1'].each { c ->
+    ['library/couchdb:1.7.1', 'library/couchdb:latest'].each { c ->
       testAxes.put("Python${v}_${c}", {test_python("python:${v}", c)})
     }
   }
