@@ -19,6 +19,7 @@ def getEnvForDest(dest) {
     CLOUDANT_ENV = ['DB_HTTP=https', 'DB_HOST=clientlibs-test.cloudant.com', 'DB_PORT=443']
     CONTAINER_ENV = ['DB_HTTP=http', 'DB_PORT=5984']
     def testEnvVars =[]
+    testEnvVars.add('DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}')
     if (dest == 'cloudant') {
        testEnvVars.addAll(CLOUDANT_ENV)
     } else {
@@ -26,11 +27,9 @@ def getEnvForDest(dest) {
        switch(dest) {
            case 'library/couchdb:2.1.1':
                testEnvVars.add('DB_PORT=5984')
-               testEnvVars.add('ADMIN_PARTY=true')
                break
            case 'library/couchdb:1.7.1':
                testEnvVars.add('DB_PORT=5984')
-               testEnvVars.add('ADMIN_PARTY=true')
                break
            case 'ibmcom/cloudant-developer':
                testEnvVars.add('DB_PORT=80')
@@ -100,7 +99,7 @@ stage('Test'){
   // Run tests in parallel for multiple python versions
   def testAxes = [:]
   ['2.7', '3.6'].each { v ->
-    ['library/couchdb:1.7.1', 'library/couchdb:latest'].each { c ->
+    ['apache/couchdb:1.7.1', 'apache/couchdb:latest'].each { c ->
       testAxes.put("Python${v}_${c}", {test_python("python:${v}", c)})
     }
   }
