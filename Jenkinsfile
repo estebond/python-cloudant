@@ -59,8 +59,8 @@ def test_python(name, dest) {
     try {
       // Unstash the source in this image
       unstash name: 'source'
-      sh """sudo pip install --user -r requirements.txt
-            sudo pip install --user -r test-requirements.txt
+      sh """pip install -r requirements.txt --user --cache-dir /tmp/python-tests
+            pip install -r test-requirements.txt --user --cache-dir /tmp/python-tests
             pylint ./src/cloudant
             nosetests -w ./tests/unit --with-xunit"""
     } finally {
