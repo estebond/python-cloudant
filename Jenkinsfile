@@ -24,10 +24,10 @@ def getEnvForDest(dest) {
     } else {
        testEnvVars.addAll(CONTAINER_ENV)
        switch(dest) {
-           case 'library/couchdb:2.1.1':
+           case 'apache/couchdb:2.1.1':
                testEnvVars.add('DB_PORT=5984')
                break
-           case 'library/couchdb:1.7.1':
+           case 'apache/couchdb:1.7.1':
                testEnvVars.add('DB_PORT=5984')
                break
            case 'ibmcom/cloudant-developer':
