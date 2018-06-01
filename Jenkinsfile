@@ -19,7 +19,6 @@ def getEnvForDest(dest) {
     CLOUDANT_ENV = ['DB_HTTP=https', 'DB_HOST=clientlibs-test.cloudant.com', 'DB_PORT=443']
     CONTAINER_ENV = ['DB_HTTP=http', 'DB_PORT=5984']
     def testEnvVars =[]
-    testEnvVars.add('DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}')
     if (dest == 'cloudant') {
        testEnvVars.addAll(CLOUDANT_ENV)
     } else {
@@ -82,6 +81,8 @@ def test_python(name, dest) {
       if (dest == 'ibmcom/cloudant-developer') {
         runInfo.envVars.add('CREDS_ID=cloudant-developer')
         runInfo.creds = [usernamePassword(credentialsId: 'cloudant-developer', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
+      } else {
+        runInfo.envVars.add('DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}')
       }
       runIn.dockerEnvWithSidecars(runInfo, [[imageName: dest]], testRun)
     }
