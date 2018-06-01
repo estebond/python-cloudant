@@ -25,11 +25,7 @@ def getEnvForDest(dest) {
        testEnvVars.addAll(CONTAINER_ENV)
        switch(dest) {
            case ~/apache\/couchdb:.*/:
-               echo env.DB_HOST
-               echo 'env.DB_HOST'
-               echo '${env.DB_HOST}'
                testEnvVars.add('DB_PORT=5984')
-               testEnvVars.add('DB_URL=env.DB_HTTP://env.DB_HOST:env.DB_PORT')
                break
            case 'ibmcom/cloudant-developer':
                testEnvVars.add('DB_PORT=80')
@@ -63,6 +59,7 @@ def test_python(name, dest) {
       sh """pip install -r requirements.txt
             pip install -r test-requirements.txt
             pylint ./src/cloudant
+            export DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}
             nosetests -w ./tests/unit --with-xunit"""
     } finally {
       // Load the test results
