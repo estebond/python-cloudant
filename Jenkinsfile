@@ -59,8 +59,8 @@ def test_python(name, dest) {
     try {
       // Unstash the source in this image
       unstash name: 'source'
-      sh """pip install -r requirements.txt --user --cache-dir /tmp/python-tests
-            pip install -r test-requirements.txt --user --cache-dir /tmp/python-tests
+      sh """pip install -r requirements.txt
+            pip install -r test-requirements.txt
             pylint ./src/cloudant
             nosetests -w ./tests/unit --with-xunit"""
     } finally {
@@ -68,7 +68,7 @@ def test_python(name, dest) {
       junit 'nosetests.xml'
     }
   }
-    def runInfo = [imageName: name, envVars: getEnvForDest(dest)]
+    def runInfo = [imageName: name, envVars: getEnvForDest(dest), runArgs: '-u 0']
     // Add test suite specific environment variables
     if (dest == 'cloudant') {
       runInfo.envVars.add('CREDS_ID=clientlibs-test')
