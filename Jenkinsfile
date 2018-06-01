@@ -62,6 +62,7 @@ def test_python(name, dest) {
       sh """pip install -r requirements.txt
             pip install -r test-requirements.txt
             pylint ./src/cloudant
+            export DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}
             nosetests -w ./tests/unit --with-xunit"""
     } finally {
       // Load the test results
@@ -81,8 +82,6 @@ def test_python(name, dest) {
       if (dest == 'ibmcom/cloudant-developer') {
         runInfo.envVars.add('CREDS_ID=cloudant-developer')
         runInfo.creds = [usernamePassword(credentialsId: 'cloudant-developer', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
-      } else {
-        runInfo.envVars.add('DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}')
       }
       runIn.dockerEnvWithSidecars(runInfo, [[imageName: dest]], testRun)
     }
