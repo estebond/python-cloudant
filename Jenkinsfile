@@ -42,7 +42,7 @@ def test_python(name, dest) {
   def testRun = {
     sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
     switch(dest) {
-      case 'apache/couchdb:2.1.0':
+      case ~/apache\/couchdb:.*/:
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_users", authentication: env.CREDS_ID
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_global_changes", authentication: env.CREDS_ID
@@ -96,7 +96,7 @@ stage('Test'){
   // Run tests in parallel for multiple python versions
   def testAxes = [:]
   ['2.7', '3.6'].each { v ->
-    ['apache/couchdb:1.7.1', 'apache/couchdb:latest'].each { c ->
+    ['apache/couchdb:1.7.1', 'apache/couchdb:latest', 'ibmcom/cloudant-developer'].each { c ->
       testAxes.put("Python${v}_${c}", {test_python("python:${v}", c)})
     }
   }
