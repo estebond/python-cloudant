@@ -21,7 +21,8 @@ def getEnvForDest(dest) {
     def testEnvVars =[]
     if (dest == 'cloudant') {
        testEnvVars.addAll(CLOUDANT_ENV)
-       testEnvVars.add('RUN_CLOUDANT_TESTS=true')
+       testEnvVars.add('RUN_CLOUDANT_TESTS=1')
+       testEnvVars.add('SKIP_DB_UPDATES=1')
     } else {
        testEnvVars.addAll(CONTAINER_ENV)
        switch(dest) {
@@ -30,7 +31,8 @@ def getEnvForDest(dest) {
                break
            case 'ibmcom/cloudant-developer':
                testEnvVars.add('DB_PORT=80')
-               testEnvVars.add('RUN_CLOUDANT_TESTS=true')
+               testEnvVars.add('RUN_CLOUDANT_TESTS=1')
+               testEnvVars.add('SKIP_DB_UPDATES=1')
                break
            default:
                error("Unknown test env")
@@ -44,7 +46,7 @@ def test_python(name, dest) {
   def testRun = {
     sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
     switch(dest) {
-      case ~/apache\/couchdb:.*/:
+      case ~/apache\/couchdb:2.*/:
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_users", authentication: env.CREDS_ID
         httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_global_changes", authentication: env.CREDS_ID
