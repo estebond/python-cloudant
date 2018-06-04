@@ -21,6 +21,7 @@ def getEnvForDest(dest) {
     def testEnvVars =[]
     if (dest == 'cloudant') {
        testEnvVars.addAll(CLOUDANT_ENV)
+       testEnvVars.add('RUN_CLOUDANT_TESTS=true')
     } else {
        testEnvVars.addAll(CONTAINER_ENV)
        switch(dest) {
@@ -29,43 +30,45 @@ def getEnvForDest(dest) {
                break
            case 'ibmcom/cloudant-developer':
                testEnvVars.add('DB_PORT=80')
+               testEnvVars.add('RUN_CLOUDANT_TESTS=true')
                break
            default:
                error("Unknown test env")
        }
     }
     return testEnvVars
- }
+}
+
+// Define the test routine for different python versions
+def testRun(dest) {
+  sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
+  switch(dest) {
+    case ~/apache\/couchdb:2.*/:
+      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
+      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_users", authentication: env.CREDS_ID
+      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_global_changes", authentication: env.CREDS_ID
+      break
+    case 'ibmcom/cloudant-developer':
+      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
+      break
+    default:
+      break
+  }
+  try {
+    // Unstash the source in this image
+    unstash name: 'source'
+    sh """pip install -r requirements.txt
+          pip install -r test-requirements.txt
+          pylint ./src/cloudant
+          export DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}
+          nosetests -w ./tests/unit --with-xunit"""
+  } finally {
+    // Load the test results
+    junit 'nosetests.xml'
+  }
+}
 
 def test_python(name, dest) {
-  // Define the test routine for different python versions
-  def testRun = {
-    sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
-    switch(dest) {
-      case ~/apache\/couchdb:.*/:
-        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
-        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_users", authentication: env.CREDS_ID
-        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_global_changes", authentication: env.CREDS_ID
-        break
-      case 'ibmcom/cloudant-developer':
-        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
-        break
-      default:
-        break
-    }
-    try {
-      // Unstash the source in this image
-      unstash name: 'source'
-      sh """pip install -r requirements.txt
-            pip install -r test-requirements.txt
-            pylint ./src/cloudant
-            export DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}
-            nosetests -w ./tests/unit --with-xunit"""
-    } finally {
-      // Load the test results
-      junit 'nosetests.xml'
-    }
-  }
     def runInfo = [imageName: name, envVars: getEnvForDest(dest), runArgs: '-u 0']
     // Add test suite specific environment variables
     if (dest == 'cloudant') {
@@ -80,7 +83,7 @@ def test_python(name, dest) {
         runInfo.envVars.add('CREDS_ID=cloudant-developer')
         runInfo.creds = [usernamePassword(credentialsId: 'cloudant-developer', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
       }
-      runIn.dockerEnvWithSidecars(runInfo, [[imageName: dest]], testRun)
+      runIn.dockerEnvWithSidecars(runInfo, [[imageName: dest]], testRun(dest))
     }
 }
 
