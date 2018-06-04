@@ -39,52 +39,51 @@ def getEnvForDest(dest) {
     return testEnvVars
 }
 
-// Define the test routine for different python versions
-def testRun(dest) {
-  sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
-  switch(dest) {
-    case ~/apache\/couchdb:2.*/:
-      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
-      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_users", authentication: env.CREDS_ID
-      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_global_changes", authentication: env.CREDS_ID
-      break
-    case 'ibmcom/cloudant-developer':
-      httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
-      break
-    default:
-      break
-  }
-  try {
-    // Unstash the source in this image
-    unstash name: 'source'
-    sh """pip install -r requirements.txt
-          pip install -r test-requirements.txt
-          pylint ./src/cloudant
-          export DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}
-          nosetests -w ./tests/unit --with-xunit"""
-  } finally {
-    // Load the test results
-    junit 'nosetests.xml'
-  }
-}
-
 def test_python(name, dest) {
-    def runInfo = [imageName: name, envVars: getEnvForDest(dest), runArgs: '-u 0']
-    // Add test suite specific environment variables
-    if (dest == 'cloudant') {
-      runInfo.envVars.add('CREDS_ID=clientlibs-test')
-      runInfo.creds = [usernamePassword(credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
-      runIn.dockerEnv(runInfo, testRun)
-    } else {
-      // Use the sidecar as the test target host
-      runInfo.envVars.add('DB_HOST=$SIDECAR_0')
-      // Add credentials for the cloudantdeveloper image
-      if (dest == 'ibmcom/cloudant-developer') {
-        runInfo.envVars.add('CREDS_ID=cloudant-developer')
-        runInfo.creds = [usernamePassword(credentialsId: 'cloudant-developer', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
-      }
-      runIn.dockerEnvWithSidecars(runInfo, [[imageName: dest]], testRun(dest))
+  // Define the test routine for different python versions
+  def testRun = {
+    sh "wget -S --spider --retry-connrefused ${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}; done"
+    switch(dest) {
+      case ~/apache\/couchdb:.*/:
+        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
+        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_users", authentication: env.CREDS_ID
+        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_global_changes", authentication: env.CREDS_ID
+        break
+      case 'ibmcom/cloudant-developer':
+        httpRequest httpMode: 'PUT', url: "${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}/_replicator", authentication: env.CREDS_ID
+        break
+      default:
+        break
     }
+    try {
+      // Unstash the source in this image
+      unstash name: 'source'
+      sh """pip install -r requirements.txt
+            pip install -r test-requirements.txt
+            pylint ./src/cloudant
+            export DB_URL=${env.DB_HTTP}://${env.DB_HOST}:${env.DB_PORT}
+            nosetests -w ./tests/unit --with-xunit"""
+    } finally {
+      // Load the test results
+      junit 'nosetests.xml'
+    }
+  }
+  def runInfo = [imageName: name, envVars: getEnvForDest(dest), runArgs: '-u 0']
+  // Add test suite specific environment variables
+  if (dest == 'cloudant') {
+    runInfo.envVars.add('CREDS_ID=clientlibs-test')
+    runInfo.creds = [usernamePassword(credentialsId: 'clientlibs-test', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
+    runIn.dockerEnv(runInfo, testRun)
+  } else {
+    // Use the sidecar as the test target host
+    runInfo.envVars.add('DB_HOST=$SIDECAR_0')
+    // Add credentials for the cloudantdeveloper image
+    if (dest == 'ibmcom/cloudant-developer') {
+      runInfo.envVars.add('CREDS_ID=cloudant-developer')
+      runInfo.creds = [usernamePassword(credentialsId: 'cloudant-developer', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD')]
+    }
+    runIn.dockerEnvWithSidecars(runInfo, [[imageName: dest]], testRun)
+  }
 }
 
 // Start of build
